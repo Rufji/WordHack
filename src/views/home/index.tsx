@@ -112,7 +112,7 @@ const GameSandbox: FC = () => {
   const [revealedWord, setRevealedWord] = useState('');
   const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [bgParticles, setBgParticles] = useState<{id: number, x: number, y: number, vx: number, vy: number}[]>([]);
-  const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
+  const mousePosRef = React.useRef({ x: 50, y: 50 });
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   // 🎵 CUSTOM SOUND REF
   const customAudioRef = React.useRef<HTMLAudioElement | null>(null);
@@ -393,7 +393,7 @@ const GameSandbox: FC = () => {
     }
 
     const playMusic = () => {
-      if (musicEnabled && bgMusicRef.current?.paused) {
+      if (musicEnabled && !document.hidden && bgMusicRef.current?.paused) {
         bgMusicRef.current.play().catch(() => {});
       }
     };
@@ -403,12 +403,28 @@ const GameSandbox: FC = () => {
 
     // Handle autoplay policy by listening for interaction
     const handleInteraction = () => playMusic();
+
+    // Handle visibility change
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        bgMusicRef.current?.pause();
+        if (customAudioRef.current && !customAudioRef.current.paused) {
+          customAudioRef.current.pause();
+          customAudioRef.current.currentTime = 0;
+        }
+      } else {
+        playMusic();
+      }
+    };
+
     window.addEventListener('click', handleInteraction);
     window.addEventListener('keydown', handleInteraction);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       window.removeEventListener('click', handleInteraction);
       window.removeEventListener('keydown', handleInteraction);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       bgMusicRef.current?.pause();
     };
   }, [musicEnabled]);
@@ -424,13 +440,13 @@ const GameSandbox: FC = () => {
         vy: p.vy + 0.1, // gravity
         life: p.life - 0.02
       })).filter(p => p.life > 0));
-    }, 16);
+    }, 32);
     return () => clearInterval(interval);
   }, [particles.length]);
 
   // Background Particles & Mouse Interaction
   React.useEffect(() => {
-    setBgParticles(Array.from({ length: 20 }).map((_, i) => ({
+    setBgParticles(Array.from({ length: 15 }).map((_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
@@ -439,10 +455,10 @@ const GameSandbox: FC = () => {
     })));
 
     const handleMouseMove = (e: MouseEvent) => {
-      setMousePos({
+      mousePosRef.current = {
         x: (e.clientX / window.innerWidth) * 100,
         y: (e.clientY / window.innerHeight) * 100
-      });
+      };
     };
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
@@ -454,8 +470,8 @@ const GameSandbox: FC = () => {
         let { x, y, vx, vy } = p;
         
         // Mouse repulsion
-        const dx = x - mousePos.x;
-        const dy = y - mousePos.y;
+        const dx = x - mousePosRef.current.x;
+        const dy = y - mousePosRef.current.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         
         if (dist < 20) {
@@ -478,7 +494,7 @@ const GameSandbox: FC = () => {
       }));
     }, 50);
     return () => clearInterval(interval);
-  }, [mousePos]);
+  }, []);
 
   // Hacker Typer Effect
   React.useEffect(() => {
@@ -546,12 +562,26 @@ const GameSandbox: FC = () => {
     resize();
     window.addEventListener('resize', resize);
 
-    const fontSize = 14;
+    // Optimize: Larger font on mobile = fewer columns to draw
+    const isMobile = window.innerWidth < 768;
+    const fontSize = isMobile ? 20 : 14;
     const columns = Math.floor(canvas.width / fontSize);
     const drops: number[] = Array(columns).fill(1);
     const chars = '01';
 
-    const draw = () => {
+    let lastTime = 0;
+    const fps = 24; // Limit FPS for performance
+    const interval = 1000 / fps;
+    let animationFrameId: number;
+
+    const draw = (currentTime: number) => {
+      animationFrameId = requestAnimationFrame(draw);
+
+      const delta = currentTime - lastTime;
+      if (delta < interval) return;
+
+      lastTime = currentTime - (delta % interval);
+
       ctx.fillStyle = 'rgba(15, 23, 42, 0.1)'; // Fade to slate-900
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -569,16 +599,16 @@ const GameSandbox: FC = () => {
       }
     };
 
-    const interval = setInterval(draw, 50);
+    animationFrameId = requestAnimationFrame(draw);
     return () => {
-      clearInterval(interval);
+      cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', resize);
     };
   }, []);
 
   const createExplosion = () => {
     const colors = ['#22d3ee', '#34d399', '#f472b6', '#fbbf24', '#ffffff'];
-    const newParticles = Array.from({ length: 40 }).map((_, i) => ({
+    const newParticles = Array.from({ length: 20 }).map((_, i) => ({
       id: Date.now() + i,
       x: 50,
       y: 40,

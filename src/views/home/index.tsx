@@ -1877,7 +1877,7 @@ const GameSandbox: FC = () => {
 
             {showStats && (
               <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/95 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                <div className={`relative w-full max-w-sm max-h-[85vh] flex flex-col border rounded-2xl shadow-2xl overflow-hidden ${nightMode ? 'bg-green-950 border-green-500/20' : 'bg-slate-900 border-cyan-500/20'}`}>
+                <div className={`relative w-full max-w-sm max-h-full flex flex-col border rounded-2xl shadow-2xl overflow-hidden ${nightMode ? 'bg-green-950 border-green-500/20' : 'bg-slate-900 border-cyan-500/20'}`}>
                   
                   {/* Header - Fixed */}
                   <div className={`relative shrink-0 p-4 border-b ${nightMode ? 'border-green-500/10 bg-green-900/20' : 'border-white/5 bg-slate-800/20'}`}>
